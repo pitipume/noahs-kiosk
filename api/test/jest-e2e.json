@@ -5,5 +5,8 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "setupFiles": ["<rootDir>/support/env.ts"],
+  "globalSetup": "<rootDir>/support/global-setup.ts",
+  "testTimeout": 30000
 }

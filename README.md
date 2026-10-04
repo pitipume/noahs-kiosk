@@ -33,6 +33,17 @@ npm run start:dev                # API on :3001
 npm run db:reset                 # demo data back to the starting menu (wipes orders)
 ```
 
+### Run the tests
+```bash
+docker compose up -d db     # tests need Postgres (they use a separate kiosk_test database)
+cd api && npm test
+```
+7 integration tests run against a **real Postgres**, not mocks. A race condition only exists in a real database, so a mocked repository couldn't prove anything:
+- `test/orders/orders.concurrency.e2e-spec.ts`: 20 customers order the last item at the same moment → exactly 1 succeeds; stock 5 with 20 orders → exactly 5; the same Idempotency-Key 10× at once → 1 order.
+- `test/payments/payments.idempotency.e2e-spec.ts`: the same confirmation twice → APPLIED then DUPLICATE (order paid once, `paid_at` unchanged); 10× at once → exactly 1 APPLIED; a late different event → IGNORED; wrong amount → IGNORED.
+
+**Do the tests really catch races?** I checked by temporarily replacing the atomic UPDATE with the classic "read stock, check in code, then write" bug: **19 of 20 customers bought the single last item** and the tests failed. With the real code restored, they pass.
+
 **Try the API:** open **http://localhost:3001/docs** (Swagger UI) → pick an endpoint → *Try it out* → *Execute*.
 For `POST /orders`, fill the optional `Idempotency-Key` header and send twice: you get the same order back.
 

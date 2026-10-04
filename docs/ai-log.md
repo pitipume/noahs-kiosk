@@ -14,6 +14,7 @@ Tool: Claude Code (Claude Opus).
 | Explicit return types on managers/repositories (`Promise<MenuItem[]>`, `OrderWithLines`) | **Me** (review feedback), AI applied | Asked why the manager's type was hidden; agreed the manager returns entities, not Response DTOs |
 | Swagger UI at `/docs` | **My request** (easier manual testing), AI implemented | Opened `/docs-json` and checked that the request schemas contain the fields and the min/max rules |
 | `POST /payments/confirm` (dedupe by eventId, conditional PENDING→PAID, amount check) | AI, following docs/03 §3 | curl: APPLIED / DUPLICATE / IGNORED (already paid) / IGNORED (amount mismatch) / 404 / 400; **10 identical confirmations fired in parallel → 1 APPLIED + 9 DUPLICATE**, checked in psql: 1 event row, 1 `paid_at` |
+| Integration tests (Jest + supertest, real Postgres `kiosk_test`) | AI wrote them to the brief's two required scenarios + extras | **Negative control:** swapped in a naive read-then-write `tryDecrementStock` → 19/20 sold the last item, 2 tests failed; restored → 7/7 pass. Checked that the tests hit `kiosk_test` and left the demo `kiosk` DB untouched. |
 | _(filled in as we go)_ | | |
 
 ## Times the AI was wrong (and how it was caught)

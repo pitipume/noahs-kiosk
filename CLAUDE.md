@@ -34,4 +34,4 @@ Controller → Handler → Manager → Repository → PrismaService
 
 ## Commands
 - `docker compose up --build`: everything (web :3000, api :3001, db :5432)
-- `cd api && npm test`: integration tests (needs the db container running)
+- `cd api && npm test`: 7 integration tests against `kiosk_test` (needs the db container running). `test/support/env.ts` points Prisma at the test DB; tests TRUNCATE tables.

@@ -12,7 +12,7 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 | 4 | `POST /orders` with atomic stock reservation | 1h | + ~0.75h lost to iCloud, rebuilt | ✅ |
 | 4b | `Idempotency-Key` on `POST /orders` (safe retry after timeout) | 0.5h |  | ✅ |
 | 5 | `POST /payments/confirm` idempotent | 1h | ~0.5h | ✅ |
-| 6 | Integration tests: concurrent orders + duplicate confirmations | 1h |  | ⬜ |
+| 6 | Integration tests: concurrent orders + duplicate confirmations | 1h | ~0.5h | ✅ |
 | 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h |  | ⬜ |
 | 8 | Docker Compose one-command run, payment simulator script | 0.5h |  | ⬜ |
 | 9 | README: run, decisions, trade-offs, next day, .NET/Angular reflection, AI usage | 0.5h |  | ⬜ |
@@ -37,6 +37,8 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 - Swagger UI at `/docs` (my request, own commit). CLI plugin documents Request DTOs + validation rules automatically; responses are interfaces so not shown (converting to classes → next day).
 
 - Phase 5: `POST /payments/confirm`. Order lookup (404) → `INSERT … ON CONFLICT DO NOTHING` on `provider_event_id` (DUPLICATE) → amount check (IGNORED + note) → conditional `UPDATE … WHERE status='PENDING'` (APPLIED or IGNORED). Always 200 for processed events so the provider stops retrying. Diagram in 03-flows §3 updated: implementation looks up the order *before* inserting the event (FK + clean 404).
+
+- Phase 6: 7 integration tests (Jest + supertest) on a separate `kiosk_test` DB with a 20-connection pool so requests really run in parallel. Negative control proved the race test fails against naive read-then-write code (19/20 oversold). `npm test` = migrate test DB + run all, ~1 s.
 
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 
