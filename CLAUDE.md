@@ -33,5 +33,6 @@ Controller → Handler → Manager → Repository → PrismaService
 8. DB: snake_case via Prisma `@map`, all timestamps `timestamptz` (UTC).
 
 ## Commands
-- `docker compose up --build`: everything (web :3000, api :3001, db :5432)
+- `docker compose up --build`: everything (web :3000, api :3001 + `/docs`, db :5432)
+- `docker compose exec api npm test` / `npm run simulate:payment -- --times 5`: tests / act as the payment provider
 - `cd api && npm test`: 7 integration tests against `kiosk_test` (needs the db container running). `test/support/env.ts` points Prisma at the test DB; tests TRUNCATE tables.

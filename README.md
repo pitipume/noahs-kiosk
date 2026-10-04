@@ -20,31 +20,54 @@ The guarantees this project is about:
 | [ai-log](docs/ai-log.md) | What the AI wrote, what I wrote, and AI mistakes caught |
 
 ## How to run
-> Work in progress: a one-command Docker Compose setup comes later. For now (API only):
 
+### One command (Docker)
+Requires Docker Desktop. Free ports 3000, 3001 and 5432 first (stop any local dev servers).
 ```bash
-docker compose up -d db          # Postgres on :5432
-cd api
-cp .env.example .env
-npm install
-npx prisma migrate dev           # create tables
-npx prisma db seed               # demo menu
-npm run start:dev                # API on :3001
-npm run db:reset                 # demo data back to the starting menu (wipes orders)
+docker compose up --build
+```
+| URL | What |
+|---|---|
+| http://localhost:3000 | Kiosk menu page |
+| http://localhost:3001/docs | API (Swagger UI) |
+
+On start, the API applies migrations and seeds the demo menu (only if empty). **Matcha Latte has 1 in stock**, so you can try "the last item" right away.
+
+Then, in a second terminal:
+```bash
+docker compose exec api npm test                               # the 7 integration tests
+docker compose exec api npm run simulate:payment               # act as the payment provider: pay the newest PENDING order
+docker compose exec api npm run simulate:payment -- --times 5  # same confirmation 5x at once → 1 APPLIED, 4 DUPLICATE
+docker compose exec api npm run db:reset                       # back to the starting menu (wipes orders)
+docker compose down                                            # stop (add -v to also delete the database volume)
 ```
 
-### Run the web app
+### Without Docker (local dev, hot reload)
 ```bash
-cd web
-cp .env.example .env.local       # API_URL=http://localhost:3001
-npm install
-npm run dev                      # http://localhost:3000 (API must be running)
+docker compose up -d db                     # only Postgres
+cd api && cp .env.example .env && npm install
+npm run db:reset                            # create tables + demo menu
+npm run start:dev                           # API on :3001 (watch mode)
+
+cd web && cp .env.example .env.local && npm install
+npm run dev                                 # http://localhost:3000
 ```
+
+### Payment simulator
+The brief's payment provider is simulated by `api/scripts/simulate-payment.ts`: it calls `POST /payments/confirm` exactly like a provider's webhook would.
+```bash
+npm run simulate:payment                          # pay the newest PENDING order once
+npm run simulate:payment -- --times 5             # same confirmation 5x at once (retries)
+npm run simulate:payment -- --event evt_abc123    # resend an old eventId (a late retry) → DUPLICATE
+npm run simulate:payment -- --amount 1            # wrong amount → IGNORED
+npm run simulate:payment -- --order <uuid>        # a specific order
+```
+Demo: order something on the kiosk page → run the simulator → see the order turn `PAID` in Prisma Studio (`npm run db:studio`).
 
 ### Run the tests
 ```bash
-docker compose up -d db     # tests need Postgres (they use a separate kiosk_test database)
-cd api && npm test
+docker compose exec api npm test      # with the Docker stack running
+# or locally: docker compose up -d db && cd api && npm test
 ```
 7 integration tests run against a **real Postgres**, not mocks. A race condition only exists in a real database, so a mocked repository couldn't prove anything:
 - `test/orders/orders.concurrency.e2e-spec.ts`: 20 customers order the last item at the same moment → exactly 1 succeeds; stock 5 with 20 orders → exactly 5; the same Idempotency-Key 10× at once → 1 order.

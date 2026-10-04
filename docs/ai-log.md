@@ -16,6 +16,7 @@ Tool: Claude Code (Claude Opus).
 | `POST /payments/confirm` (dedupe by eventId, conditional PENDING→PAID, amount check) | AI, following docs/03 §3 | curl: APPLIED / DUPLICATE / IGNORED (already paid) / IGNORED (amount mismatch) / 404 / 400; **10 identical confirmations fired in parallel → 1 APPLIED + 9 DUPLICATE**, checked in psql: 1 event row, 1 `paid_at` |
 | Integration tests (Jest + supertest, real Postgres `kiosk_test`) | AI wrote them to the brief's two required scenarios + extras | **Negative control:** swapped in a naive read-then-write `tryDecrementStock` → 19/20 sold the last item, 2 tests failed; restored → 7/7 pass. Checked that the tests hit `kiosk_test` and left the demo `kiosk` DB untouched. |
 | Next.js web: menu page (Server Component), Server Action, order form, auto-refresh, error page | AI, following docs/04-ui-states | `tsc`, ESLint, `next build` (route `/` is ƒ Dynamic), curl: SSR HTML contains prices/stock; stock bought by another client appears on next load without rebuild. Browser click-through: **me** (see PROGRESS) |
+| Dockerfiles, docker-compose (db + api + web with healthchecks), payment simulator script | AI | Full stack up via compose; page renders 5 items; simulator 5× same event → 1 APPLIED + 4 DUPLICATE; 7/7 tests inside the container. **Fresh-clone run** under a separate compose project (new volume): migration applied, menu seeded, tests pass. |
 | _(filled in as we go)_ | | |
 
 ## Times the AI was wrong (and how it was caught)
