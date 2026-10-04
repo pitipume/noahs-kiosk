@@ -148,7 +148,7 @@ sequenceDiagram
     B->>W: placeOrder(formData)  (Server Action POST)
     W->>A: POST /orders
     A-->>W: 201 / 409
-    W->>W: revalidatePath('/')
+    W->>W: refresh()  (next/cache)
     W-->>B: result + fresh RSC payload of the page
     B-->>C: message + updated stock (no full reload)
 ```

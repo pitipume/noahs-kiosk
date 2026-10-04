@@ -3,7 +3,7 @@
 A tiny ordering service for one kiosk menu, built as a take-home for NOAHS.
 
 - **api/**: NestJS + TypeScript + PostgreSQL (Prisma)
-- **web/**: Next.js (App Router) *(in progress)*
+- **web/**: Next.js 16 (App Router)
 
 The guarantees this project is about:
 1. **Never sell the same last item twice**, even when two customers order at the same moment.
@@ -31,6 +31,14 @@ npx prisma migrate dev           # create tables
 npx prisma db seed               # demo menu
 npm run start:dev                # API on :3001
 npm run db:reset                 # demo data back to the starting menu (wipes orders)
+```
+
+### Run the web app
+```bash
+cd web
+cp .env.example .env.local       # API_URL=http://localhost:3001
+npm install
+npm run dev                      # http://localhost:3000 (API must be running)
 ```
 
 ### Run the tests

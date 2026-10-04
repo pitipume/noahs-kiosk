@@ -15,6 +15,7 @@ Tool: Claude Code (Claude Opus).
 | Swagger UI at `/docs` | **My request** (easier manual testing), AI implemented | Opened `/docs-json` and checked that the request schemas contain the fields and the min/max rules |
 | `POST /payments/confirm` (dedupe by eventId, conditional PENDING→PAID, amount check) | AI, following docs/03 §3 | curl: APPLIED / DUPLICATE / IGNORED (already paid) / IGNORED (amount mismatch) / 404 / 400; **10 identical confirmations fired in parallel → 1 APPLIED + 9 DUPLICATE**, checked in psql: 1 event row, 1 `paid_at` |
 | Integration tests (Jest + supertest, real Postgres `kiosk_test`) | AI wrote them to the brief's two required scenarios + extras | **Negative control:** swapped in a naive read-then-write `tryDecrementStock` → 19/20 sold the last item, 2 tests failed; restored → 7/7 pass. Checked that the tests hit `kiosk_test` and left the demo `kiosk` DB untouched. |
+| Next.js web: menu page (Server Component), Server Action, order form, auto-refresh, error page | AI, following docs/04-ui-states | `tsc`, ESLint, `next build` (route `/` is ƒ Dynamic), curl: SSR HTML contains prices/stock; stock bought by another client appears on next load without rebuild. Browser click-through: **me** (see PROGRESS) |
 | _(filled in as we go)_ | | |
 
 ## Times the AI was wrong (and how it was caught)
@@ -48,6 +49,16 @@ Tool: Claude Code (Claude Opus).
 - **What AI did:** enabled the `@nestjs/swagger` CLI plugin with default options. The plugin only scans files named `*.dto.ts` / `*.entity.ts`, and our convention is `*.request.ts`, so `PlaceOrderRequest` appeared with **no fields**.
 - **How caught:** checked the generated spec (`/docs-json`) instead of only checking that the page loads (HTTP 200).
 - **Fix:** `"dtoFileNameSuffix": [".request.ts"]` in `nest-cli.json`. Lesson: "the page loads" isn't the same as "it's correct".
+
+### 7. Design used pre-Next-16 APIs
+- **What AI did:** the design docs said `revalidatePath('/')` after an order and assumed `error.tsx` receives `reset()`, both from older Next.js versions in its training data.
+- **How caught:** Next 16 ships its docs inside `node_modules/next/dist/docs` with a note telling AI agents to read them first. Reading them showed `error.tsx` now gets `retry()`, and Server Actions have a dedicated `refresh()` for "re-render the current page", which fits better than revalidating a cache we don't use.
+- **Fix:** used `refresh()` and `retry`; design docs updated.
+
+### 8. `setState` inside `useEffect` (3×) and a "Start over" button that did nothing
+- **What AI did:** synced state with effects (generate a key on mount, react to each result, clamp quantity). Separately, "Start over" cleared the key but left the last "unknown" result in place, so the warning stayed and the quantity stayed locked.
+- **How caught:** ESLint's React rule `react-hooks/set-state-in-effect` flagged the 3 effects; the Start-over bug was found by re-reading the component before running it.
+- **Fix:** key in a `useRef` set at submit time, state updates moved into the action, quantity clamp derived during render; Start over now hides the current result (`dismissedAt`).
 
 <!-- Format:
 ### <short title>

@@ -11,7 +11,7 @@ A take-home for a NOAHS interview: a tiny kiosk ordering service ("the last item
 
 ## Stack
 - `api/`: NestJS 11, `@nestjs/cqrs`, Prisma 6, PostgreSQL 16, class-validator, Jest + supertest, `@nestjs/swagger` (UI at `/docs`, CLI plugin reads `*.request.ts`)
-- `web/`: Next.js (App Router), React, no UI library, minimal CSS
+- `web/`: Next.js 16 (App Router), React 19, no UI library, minimal CSS. **Next 16 differs from older docs:** read `web/node_modules/next/dist/docs/` before using an API (e.g. `error.tsx` gets `retry`, Server Actions use `refresh()`).
 - `docker-compose.yml`: db + api + web
 
 ## Backend layering (see docs/01-architecture.md)

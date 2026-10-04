@@ -13,7 +13,7 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 | 4b | `Idempotency-Key` on `POST /orders` (safe retry after timeout) | 0.5h |  | ✅ |
 | 5 | `POST /payments/confirm` idempotent | 1h | ~0.5h | ✅ |
 | 6 | Integration tests: concurrent orders + duplicate confirmations | 1h | ~0.5h | ✅ |
-| 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h |  | ⬜ |
+| 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h | ~1h | ✅ |
 | 8 | Docker Compose one-command run, payment simulator script | 0.5h |  | ⬜ |
 | 9 | README: run, decisions, trade-offs, next day, .NET/Angular reflection, AI usage | 0.5h |  | ⬜ |
 
@@ -39,6 +39,8 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 - Phase 5: `POST /payments/confirm`. Order lookup (404) → `INSERT … ON CONFLICT DO NOTHING` on `provider_event_id` (DUPLICATE) → amount check (IGNORED + note) → conditional `UPDATE … WHERE status='PENDING'` (APPLIED or IGNORED). Always 200 for processed events so the provider stops retrying. Diagram in 03-flows §3 updated: implementation looks up the order *before* inserting the event (FK + clean 404).
 
 - Phase 6: 7 integration tests (Jest + supertest) on a separate `kiosk_test` DB with a 20-connection pool so requests really run in parallel. Negative control proved the race test fails against naive read-then-write code (19/20 oversold). `npm test` = migrate test DB + run all, ~1 s.
+
+- Phase 7: Next.js 16 web. Menu page = Server Component (`force-dynamic`, `fetch` `no-store`); `OrderForm` client component with `useActionState` (pending state, idempotency key in a ref, retry lock, Start over, failure escalation); Server Action `placeOrder` → API with 5 s timeout → `refresh()`; `AutoRefresh` polls `router.refresh()` every 5 s; `error.tsx` for API down. Verified: build, lint, SSR HTML, stock change visible without rebuild. **Still to verify by hand in a browser:** clicking Order, sold-out race message, error page.
 
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 

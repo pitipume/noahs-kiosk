@@ -55,12 +55,14 @@ noahs-kiosk/
     │   ├── layout.tsx
     │   ├── page.tsx       # menu page (Server Component)
     │   ├── error.tsx      # shown if the menu can't be loaded (API down)
-    │   └── actions.ts     # Server Action: placeOrder → API → revalidatePath
+    │   └── actions.ts     # Server Action: placeOrder → API → refresh()
     ├── components/
     │   ├── order-form.tsx    # 'use client' — quantity + Order button
     │   └── auto-refresh.tsx  # 'use client' — router.refresh() polling
     └── lib/
-        ├── api.ts         # typed fetch helpers
+        ├── api.ts         # server-only fetch helpers (getMenu)
+        ├── types.ts       # API shapes + OrderResult
+        ├── format.ts      # ฿ price, short order id
         └── messages.ts    # error code → customer-friendly message (see 04-ui-states.md)
 ```
 
@@ -198,5 +200,5 @@ Why `/payments/confirm` answers **200 even for duplicates**: providers retry unt
 | Server Component (default) | no direct equivalent: a component that runs **only on the server**, can `await fetch()` directly, and ships no JS |
 | `'use client'` component | a normal Angular component (runs in the browser, has state and events) |
 | Server Action (`'use server'` function) | a service method that calls the backend, except it runs on the server and the form can call it directly |
-| `revalidatePath('/')` | "re-run the resolver and re-render this route" |
+| `refresh()` (in a Server Action) | "re-run the resolver and re-render this route" |
 | `router.refresh()` | re-fetch the server-rendered data without a full reload |

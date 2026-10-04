@@ -1,0 +1,24 @@
+/* Deliberately minimal (styling is out of scope): readable + responsive only. */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.4; color: #111; background: #fafafa; }
+main { max-width: 960px; margin: 0 auto; padding: 1rem; }
+
+/* 1 column on phones, as many ~260px columns as fit on wider screens */
+.menu { list-style: none; padding: 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; }
+.card-header { display: flex; justify-content: space-between; gap: 0.5rem; font-weight: 600; }
+
+.stock { margin: 0.25rem 0 0.75rem; color: #555; }
+.stock.low { color: #b45309; font-weight: 600; }
+.stock.out { color: #b91c1c; font-weight: 600; }
+
+.order-controls { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+button, select { font: inherit; padding: 0.5rem 0.75rem; min-height: 44px; } /* 44px = comfortable tap target */
+button { cursor: pointer; }
+button:disabled, select:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.message { margin-top: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 6px; }
+.message p { margin: 0.25rem 0 0; }
+.message.success { background: #ecfdf5; border: 1px solid #10b981; }
+.message.error { background: #fef2f2; border: 1px solid #ef4444; }
+.message.warning { background: #fffbeb; border: 1px solid #f59e0b; }
