@@ -1,0 +1,81 @@
+// DB design as code. Full reasoning: docs/02-database.md
+// Convention: camelCase in TypeScript, snake_case in Postgres (@map / @@map).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+
+  @@map("order_status")
+}
+
+enum PaymentEventResult {
+  APPLIED // this event moved the order PENDING -> PAID
+  IGNORED // recorded for audit, but changed nothing (see note)
+
+  @@map("payment_event_result")
+}
+
+model MenuItem {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  priceCents Int      @map("price_cents") // CHECK (price_cents >= 0) added in migration SQL
+  stock      Int // CHECK (stock >= 0) added in migration SQL
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  orderLines OrderLine[]
+
+  @@map("menu_item")
+}
+
+model Order {
+  id             String      @id @default(uuid()) @db.Uuid
+  idempotencyKey String?     @unique @map("idempotency_key") @db.VarChar(100)
+  status         OrderStatus @default(PENDING)
+  totalCents     Int         @map("total_cents")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  paidAt         DateTime?   @map("paid_at") @db.Timestamptz(3)
+
+  lines         OrderLine[]
+  paymentEvents PaymentEvent[]
+
+  @@map("orders") // "order" is a reserved SQL word
+}
+
+model OrderLine {
+  id             Int    @id @default(autoincrement())
+  orderId        String @map("order_id") @db.Uuid
+  menuItemId     Int    @map("menu_item_id")
+  quantity       Int // CHECK (quantity > 0) added in migration SQL
+  unitPriceCents Int    @map("unit_price_cents") // price snapshot at order time
+
+  order    Order    @relation(fields: [orderId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@map("order_line")
+}
+
+model PaymentEvent {
+  id              Int                @id @default(autoincrement())
+  providerEventId String             @unique @map("provider_event_id") @db.VarChar(100) // idempotency key
+  orderId         String             @map("order_id") @db.Uuid
+  amountCents     Int                @map("amount_cents")
+  result          PaymentEventResult
+  note            String?            @db.VarChar(200)
+  receivedAt      DateTime           @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("payment_event")
+}

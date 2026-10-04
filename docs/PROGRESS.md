@@ -7,7 +7,7 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 | # | Phase | Est. | Status |
 |---|---|---|---|
 | 1 | Read brief, decide stack, write design docs (architecture, DB, flows) | 1h | ✅ |
-| 2 | API scaffold: NestJS + Prisma schema + migration + seed + Docker Postgres | 1h | ⬜ |
+| 2 | API scaffold: NestJS + Prisma schema + migration + seed + Docker Postgres | 1h | ✅ |
 | 3 | `GET /menu` | 0.25h | ⬜ |
 | 4 | `POST /orders` with atomic stock reservation | 1h | ⬜ |
 | 4b | `Idempotency-Key` on `POST /orders` (safe retry after timeout) | 0.5h | ⬜ |
@@ -25,6 +25,11 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 - Design review round 1 (my feedback): added the Service-layer rationale, module table ownership, use-case folder (Request/Response), no-try/catch error handling with stable error `code`s, an honest note on CQRS (mediator only); DB naming (snake_case), UTC `timestamptz`, why there's no `created_by` yet; why there's no queue; new `04-ui-states.md` covering every happy/fail path the customer can hit.
 
 - Design review round 2: clarified `timestamptz` (a type, not a naming choice); added idempotency key on orders so "Try again" after a timeout can't create a second order. Round 3: retry policy = manual, no hard cap, escalate to staff after 2 failures; lock quantity during retry.
+
+- Phase 2: NestJS 11 scaffold, Prisma 6 schema (snake_case, timestamptz, CHECK constraints added by hand to migration), seed (only if empty), global ValidationPipe returning `VALIDATION_FAILED`. Postgres in Docker with a separate `kiosk_test` DB for tests. 3 AI mistakes caught (see ai-log).
+
+- Version decision: stay on **NestJS 11** (`legacy` tag) and **Prisma 6**, though NestJS 12 (Sep 2026) and Prisma 7 exist. Reasons: time box, a stack I've already used (twon-next-nest), better-known docs; upgrading is a separate, testable task (README → next steps).
+- I found that `npx prisma studio` from the repo root downloaded Prisma 8 RC instead of using the project's Prisma 6. Added an `npm run db:studio` script and a README note.
 
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 

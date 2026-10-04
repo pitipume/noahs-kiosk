@@ -1,0 +1,23 @@
+# One file for the whole stack. For now: only the database.
+# api + web services are added in phase 8.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kiosk
+      POSTGRES_PASSWORD: kiosk
+      POSTGRES_DB: kiosk
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Runs once on first start: creates the separate test database (kiosk_test)
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kiosk -d kiosk"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db-data:
