@@ -12,6 +12,7 @@ Tool: Claude Code (Claude Opus).
 | API scaffold: Nest CLI project, Prisma schema, migration, seed, PrismaService, validation pipe | AI, from the DB design I approved | Compared schema against 02-database.md; ran migration and checked `\d menu_item` in psql shows the CHECK constraints; compiled with `tsc` |
 | `GET /menu`, `POST /orders` (stock reservation, idempotency key), all layers | AI, following docs/01–03 | curl smoke test of each path: success, replayed key, sold out, multi-line rollback (Latte stock stayed 10), unknown item, invalid body. Concurrency proven by tests in phase 6. |
 | Explicit return types on managers/repositories (`Promise<MenuItem[]>`, `OrderWithLines`) | **Me** (review feedback), AI applied | Asked why the manager's type was hidden; agreed the manager returns entities, not Response DTOs |
+| Swagger UI at `/docs` | **My request** (easier manual testing), AI implemented | Opened `/docs-json` and checked that the request schemas contain the fields and the min/max rules |
 | _(filled in as we go)_ | | |
 
 ## Times the AI was wrong (and how it was caught)
@@ -40,6 +41,11 @@ Tool: Claude Code (Claude Opus).
 - **What happened:** the repo started under `~/Documents`, which macOS syncs to iCloud Drive. iCloud evicted files to "dataless" placeholders: first inside `node_modules` (the Prisma CLI exited silently, `tsc` hung for 2+ minutes instead of ~1 s), later the uncommitted phase 3–4 source files themselves.
 - **How caught:** the AI first treated the Prisma failure as a random corruption and just reinstalled. Only when `tsc` hung with 0% CPU did it check the file flags (`ls -lO` → `compressed,dataless`) and find iCloud.
 - **Fix:** fresh clone into `~/Developer` (not synced), phase 3–4 rebuilt from the session (the AI had written every file). Lesson for both of us: when tools behave randomly, check the environment before blaming the code, and commit/push small and often, since only pushed work survived.
+
+### 6. Swagger showed empty request bodies
+- **What AI did:** enabled the `@nestjs/swagger` CLI plugin with default options. The plugin only scans files named `*.dto.ts` / `*.entity.ts`, and our convention is `*.request.ts`, so `PlaceOrderRequest` appeared with **no fields**.
+- **How caught:** checked the generated spec (`/docs-json`) instead of only checking that the page loads (HTTP 200).
+- **Fix:** `"dtoFileNameSuffix": [".request.ts"]` in `nest-cli.json`. Lesson: "the page loads" isn't the same as "it's correct".
 
 <!-- Format:
 ### <short title>

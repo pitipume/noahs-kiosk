@@ -10,7 +10,7 @@ A take-home for a NOAHS interview: a tiny kiosk ordering service ("the last item
 - After each phase, update `docs/PROGRESS.md`. When the AI makes a mistake that gets caught, add it to `docs/ai-log.md` truthfully.
 
 ## Stack
-- `api/`: NestJS 11, `@nestjs/cqrs`, Prisma 6, PostgreSQL 16, class-validator, Jest + supertest
+- `api/`: NestJS 11, `@nestjs/cqrs`, Prisma 6, PostgreSQL 16, class-validator, Jest + supertest, `@nestjs/swagger` (UI at `/docs`, CLI plugin reads `*.request.ts`)
 - `web/`: Next.js (App Router), React, no UI library, minimal CSS
 - `docker-compose.yml`: db + api + web
 

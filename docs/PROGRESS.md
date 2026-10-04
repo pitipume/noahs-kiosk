@@ -34,6 +34,8 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 - Phases 3+4+4b: `GET /menu`, `POST /orders` with atomic conditional-UPDATE reservation, lines merged + sorted (deadlock avoidance), all-or-nothing rollback, `Idempotency-Key` header (fast-path lookup + UNIQUE index for races). Replayed key returns 201 + same order (changed from the design's 200, see ai-log #4). Added `npm run db:reset`. My review: explicit return types on managers/repositories.
 - **Incident:** the repo was in `~/Documents` (iCloud-synced). iCloud evicted the uncommitted phase 3–4 files before they were committed. Re-cloned to `~/Developer`, rebuilt phase 3–4 from the session, verified with the same smoke test. ~45 min lost. Lesson: commit + push small and often (see ai-log #5).
 
+- Swagger UI at `/docs` (my request, own commit). CLI plugin documents Request DTOs + validation rules automatically; responses are interfaces so not shown (converting to classes → next day).
+
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 
 ## Next (if another day): see README → "What I would do next"

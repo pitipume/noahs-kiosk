@@ -33,6 +33,9 @@ npm run start:dev                # API on :3001
 npm run db:reset                 # demo data back to the starting menu (wipes orders)
 ```
 
+**Try the API:** open **http://localhost:3001/docs** (Swagger UI) → pick an endpoint → *Try it out* → *Execute*.
+For `POST /orders`, fill the optional `Idempotency-Key` header and send twice: you get the same order back.
+
 > Run Prisma commands from inside `api/`. From the repo root, `npx` can't find the local Prisma 6 and downloads the newest one instead (currently an 8.0 release candidate, which has no `studio` command).
 
 ### Look at the database
