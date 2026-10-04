@@ -11,7 +11,7 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 | 3 | `GET /menu` | 0.25h | ~0.5h (with 4 + 4b) | ✅ |
 | 4 | `POST /orders` with atomic stock reservation | 1h | + ~0.75h lost to iCloud, rebuilt | ✅ |
 | 4b | `Idempotency-Key` on `POST /orders` (safe retry after timeout) | 0.5h |  | ✅ |
-| 5 | `POST /payments/confirm` idempotent | 1h |  | ⬜ |
+| 5 | `POST /payments/confirm` idempotent | 1h | ~0.5h | ✅ |
 | 6 | Integration tests: concurrent orders + duplicate confirmations | 1h |  | ⬜ |
 | 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h |  | ⬜ |
 | 8 | Docker Compose one-command run, payment simulator script | 0.5h |  | ⬜ |
@@ -35,6 +35,8 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 - **Incident:** the repo was in `~/Documents` (iCloud-synced). iCloud evicted the uncommitted phase 3–4 files before they were committed. Re-cloned to `~/Developer`, rebuilt phase 3–4 from the session, verified with the same smoke test. ~45 min lost. Lesson: commit + push small and often (see ai-log #5).
 
 - Swagger UI at `/docs` (my request, own commit). CLI plugin documents Request DTOs + validation rules automatically; responses are interfaces so not shown (converting to classes → next day).
+
+- Phase 5: `POST /payments/confirm`. Order lookup (404) → `INSERT … ON CONFLICT DO NOTHING` on `provider_event_id` (DUPLICATE) → amount check (IGNORED + note) → conditional `UPDATE … WHERE status='PENDING'` (APPLIED or IGNORED). Always 200 for processed events so the provider stops retrying. Diagram in 03-flows §3 updated: implementation looks up the order *before* inserting the event (FK + clean 404).
 
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 

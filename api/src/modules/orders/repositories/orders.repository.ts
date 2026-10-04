@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { Tx } from '../../../common/prisma/prisma.service';
 
 // What every order query returns: the order + its lines + each line's item name.
@@ -33,6 +33,19 @@ export class OrdersRepository {
       where: { idempotencyKey },
       include: withLines,
     });
+  }
+
+  /**
+   * PENDING -> PAID, only if still PENDING. Same trick as the stock decrement:
+   *   UPDATE orders SET status = 'PAID', paid_at = now() WHERE id = $1 AND status = 'PENDING'
+   * @returns true if this call made the transition, false if the order was already paid.
+   */
+  async markPaidIfPending(db: Tx, id: string): Promise<boolean> {
+    const { count } = await db.order.updateMany({
+      where: { id, status: OrderStatus.PENDING },
+      data: { status: OrderStatus.PAID, paidAt: new Date() },
+    });
+    return count === 1;
   }
 
   /** Inserts the order and all its lines in one statement group (inside the caller's tx). */

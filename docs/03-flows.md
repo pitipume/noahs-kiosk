@@ -61,12 +61,16 @@ sequenceDiagram
     participant D as Postgres
     P->>A: POST /payments/confirm {eventId: evt_1, orderId, amountCents}
     A->>D: BEGIN
+    A->>D: SELECT order
+    alt order not found
+        A->>D: ROLLBACK
+        A-->>P: 404 ORDER_NOT_FOUND
+    end
     A->>D: INSERT payment_event (evt_1) ON CONFLICT DO NOTHING
     alt 0 rows inserted (we have seen evt_1 before)
-        A->>D: ROLLBACK
+        A->>D: COMMIT (nothing changed)
         A-->>P: 200 DUPLICATE
     else 1 row inserted (new event)
-        A->>D: SELECT order
         alt amount ≠ order total
             A->>D: mark event IGNORED "amount mismatch" → COMMIT
             A-->>P: 200 IGNORED
