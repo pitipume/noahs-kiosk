@@ -4,201 +4,186 @@
 
 ```mermaid
 flowchart LR
-    B[Browser<br/>mobile / desktop] -->|HTML + Server Actions| W[web<br/>Next.js App Router<br/>:3000]
+    B[Browser<br/>mobile / desktop] -->|HTML + Server Actions| W[web<br/>Next.js<br/>:3000]
     W -->|HTTP JSON<br/>server-side only| A[api<br/>NestJS<br/>:3001]
     P[Payment provider<br/>simulated by script] -->|POST /payments/confirm| A
     A -->|Prisma| D[(PostgreSQL<br/>:5432)]
 ```
 
-- The **browser never calls the API directly.** The Next.js server renders the menu and runs Server Actions, and those call the API. That means no CORS setup, and the API URL stays internal.
-- **PostgreSQL is the single source of truth** for stock. There is no cache layer (see README → Caching).
+- **The browser never calls the API directly.** The Next.js server renders the page and runs the order action, and that's what calls the API. So there's no CORS setup, and the API address stays internal.
+- **PostgreSQL is the only source of truth for stock.** There's no cache in between (see README → Caching).
 
-## Repository layout
+## Folder structure
 
 ```
 noahs-kiosk/
-├── README.md              # how to run, decisions, trade-offs, next steps
-├── CLAUDE.md              # rules for AI-assisted work in this repo
-├── docker-compose.yml     # db + api + web, one command
-├── docs/                  # design docs (this folder)
-├── api/                   # NestJS backend
+├── docker-compose.yml          # db + api + web, one command
+├── docs/                       # these design docs
+├── api/                        # NestJS backend
+│   ├── Dockerfile
 │   ├── prisma/
-│   │   ├── schema.prisma  # DB design as code
-│   │   ├── migrations/    # generated SQL (+ hand-added CHECK constraints)
-│   │   └── seed.ts        # demo menu (only inserts when table is empty)
-│   ├── scripts/
-│   │   └── simulate-payment.ts   # acts as the payment provider
+│   │   ├── schema.prisma       # database design as code
+│   │   ├── migrations/         # generated SQL + hand-written CHECK constraints
+│   │   └── seed.ts             # demo menu (only if the table is empty)
+│   ├── scripts/simulate-payment.ts   # plays the payment provider
 │   ├── src/
-│   │   ├── main.ts
+│   │   ├── main.ts             # starts the app, validation, Swagger at /docs
 │   │   ├── app.module.ts
-│   │   ├── common/prisma/        # PrismaService (DbContext equivalent)
+│   │   ├── common/
+│   │   │   ├── prisma/         # PrismaService (like a DbContext)
+│   │   │   ├── decorators/     # @IdempotencyKey() reads the header
+│   │   │   └── validation.ts   # global validation → 400 VALIDATION_FAILED
 │   │   └── modules/
-│   │       ├── menu/
-│   │       │   ├── menu.controller.ts
-│   │       │   ├── menu.module.ts
-│   │       │   ├── queries/get-menu/        # GetMenuQuery + GetMenuHandler
-│   │       │   ├── managers/menu.manager.ts
-│   │       │   └── repositories/menu.repository.ts
-│   │       ├── orders/
-│   │       │   ├── orders.controller.ts
-│   │       │   ├── commands/place-order/    # Command + Handler + Request + Response
-│   │       │   ├── managers/orders.manager.ts
-│   │       │   └── repositories/orders.repository.ts
-│   │       └── payments/
-│   │           ├── payments.controller.ts
-│   │           ├── commands/confirm-payment/   # Command + Handler + Request + Response
-│   │           ├── managers/payments.manager.ts
-│   │           └── repositories/payments.repository.ts
-│   └── test/              # integration tests against a real Postgres
-└── web/                   # Next.js frontend
+│   │       ├── menu/           # GET /menu
+│   │       ├── orders/         # POST /orders
+│   │       └── payments/       # POST /payments/confirm
+│   └── test/
+│       ├── support/            # test DB setup + helpers
+│       ├── orders/             # concurrency tests
+│       └── payments/           # idempotency tests
+└── web/                        # Next.js frontend
+    ├── Dockerfile
     ├── app/
-    │   ├── layout.tsx
-    │   ├── page.tsx       # menu page (Server Component)
-    │   ├── error.tsx      # shown if the menu can't be loaded (API down)
-    │   └── actions.ts     # Server Action: placeOrder → API → refresh()
+    │   ├── page.tsx            # menu page (Server Component)
+    │   ├── actions.ts          # Server Action: place order → API → refresh()
+    │   ├── error.tsx           # shown when the API is down
+    │   └── layout.tsx
     ├── components/
-    │   ├── order-form.tsx    # 'use client' — quantity + Order button
-    │   └── auto-refresh.tsx  # 'use client' — router.refresh() polling
+    │   ├── order-form.tsx      # quantity + Order button + messages (client)
+    │   └── auto-refresh.tsx    # refreshes the page every 5 s (client)
     └── lib/
-        ├── api.ts         # server-only fetch helpers (getMenu)
-        ├── types.ts       # API shapes + OrderResult
-        ├── format.ts      # ฿ price, short order id
-        └── messages.ts    # error code → customer-friendly message (see 04-ui-states.md)
+        ├── api.ts              # server-only: getMenu()
+        ├── messages.ts         # every customer message (see 04-ui-states.md)
+        ├── format.ts           # ฿ price, short order number
+        └── types.ts
 ```
 
-## Backend layers (4 layers)
+Each backend module has the same shape:
+```
+orders/
+├── orders.controller.ts
+├── orders.module.ts
+├── commands/place-order/       # one folder per endpoint
+│   ├── place-order.request.ts  # body + validation rules  (≈ Request + FluentValidator)
+│   ├── place-order.command.ts  # message for the mediator (≈ MediatR IRequest)
+│   ├── place-order.handler.ts  # calls the manager         (≈ MediatR Handler)
+│   └── place-order.response.ts # what the API returns       (≈ Response)
+├── managers/orders.manager.ts
+└── repositories/orders.repository.ts
+```
 
-Same idea as the .NET modular architecture, minus the pass-through Service layer:
+## Backend layers
+
+The same idea as my .NET modular architecture, without a Service layer:
 
 ```
-Controller  →  Handler  →  Manager  →  Repository  →  PrismaService (DbContext)
- (HTTP)        (mediator)   (business)   (data access)
+Controller  →  Handler  →  Manager  →  Repository  →  PrismaService
+  (HTTP)      (mediator)  (business)  (one query)      (DbContext)
 ```
 
-| Layer | .NET equivalent | Its one job | Must NOT |
-|---|---|---|---|
-| **Controller** | Controller | Map HTTP to a Command/Query, then `commandBus.execute()` | contain any logic |
-| **Request DTO** | Request + FluentValidator | Shape and validate input (`class-validator` decorators, run by the global `ValidationPipe`) | touch the DB |
-| **Handler** | MediatR Handler | Call the manager, shape the Response | contain business rules |
-| **Manager** | Manager | Business rules, **owns the transaction boundary** | build HTTP responses |
-| **Repository** | Repository | One Prisma query per method, no decisions | know about HTTP or business rules |
-
-**Where does new code go? Ask:**
-- "Is it about HTTP (route, status code)?" → Controller
-- "Is it about input shape (required, min, max)?" → Request DTO
-- "Is it a business rule (stock, state transition, amount check)?" → Manager
-- "Is it a SQL query?" → Repository
-- "Is it calling an external system (a real payment provider)?" → add a `clients/` folder; the Manager calls the client
-
-**Transactions:** the Manager opens `prisma.$transaction(async (tx) => …)` and passes `tx` into repository methods. This is the same idea as a Unit of Work in EF Core: all repository calls inside share one DB transaction.
-
-### Why no Service layer (and when to add one)
-Without a Service layer, **all business logic lives in the Manager**: stock rules, the order total, payment state transitions, the amount check. The Repository only runs queries.
-
-In this project a Service would be pure pass-through (`manager → service.x() → repo.x()`), which is extra code to read and explain with no extra meaning. **Add a `services/` folder when a piece of logic is reused by 2+ managers** (e.g. a `PricingService` used by both Orders and a future Refunds module). It isn't needed today.
-
-### Module boundaries: who owns what
-| Module | Owns table(s) | Exports |
+| Layer | Its one job | Never |
 |---|---|---|
-| `menu` | `menu_item` | `MenuRepository` (stock read + atomic decrement) |
-| `orders` | `orders`, `order_line` | `OrdersRepository` (order lookup + status update) |
-| `payments` | `payment_event` | — |
+| **Controller** | Turn the HTTP request into a command and send it | contain logic |
+| **Request** | Validation rules as decorators (`@IsInt() @Min(1) @Max(10)`), checked before the controller runs | touch the DB |
+| **Handler** | Call the manager, shape the response | contain business rules |
+| **Manager** | Business rules; **opens the transaction** | build HTTP responses |
+| **Repository** | One database query per method | make decisions |
 
-Orders doesn't write `menu_item` with its own query. It calls `MenuRepository.tryDecrementStock(tx, …)`, imported from `MenuModule`. Each table has exactly one module that writes SQL for it, so "where is stock changed?" has one answer.
+**Where does new code go?**
+- About routes or status codes → Controller
+- About input (required, min, max) → Request
+- A business rule (stock, order status, amount check) → Manager
+- A database query → Repository
+- Calling an outside system (a real payment provider) → a new `clients/` folder, called by the Manager
 
-### Use-case folder (Handler + Request + Response)
-Each endpoint gets one folder, the same set of files as in .NET:
-```
-commands/place-order/
-├── place-order.command.ts    # the message sent on the CommandBus (like a MediatR IRequest)
-├── place-order.request.ts    # HTTP body DTO + validation rules (≈ Request + FluentValidator)
-├── place-order.response.ts   # response shape (≈ Response)
-└── place-order.handler.ts    # @CommandHandler (≈ MediatR Handler)
-```
-**Validator:** in NestJS the rules go *on the Request class* as decorators (`@IsInt() @Min(1) @Max(10) quantity`). The global `ValidationPipe` runs them before the controller method is called, which is the same effect as a FluentValidation pipeline behaviour. Invalid input never reaches the Handler, and the client gets a 400 with the failed rules.
+**Transactions.** The Manager runs `prisma.$transaction(async (tx) => …)` and passes `tx` into each repository call, like a Unit of Work in EF Core. If anything throws inside, everything rolls back.
 
-### Error handling: no try/catch in handlers
-NestJS has a **global exception filter**, the same idea as .NET's exception-handling middleware:
-- Code anywhere throws `ConflictException({ code: 'OUT_OF_STOCK', ... })` → the filter turns it into HTTP 409 with that JSON body.
-- Any unexpected error → HTTP 500 and it's logged. Nothing leaks.
-- When a Manager throws inside `$transaction`, Prisma **rolls back automatically**.
+**Why no Service layer?** Here it would only pass calls from Manager to Repository. Add one when two managers need the same logic (e.g. a `PricingService` shared by Orders and a future Refunds module).
 
-So Handlers stay clean. Only use try/catch where you'd **do something different** with the error (e.g. translate a specific DB error into a business error), never just to re-throw or log.
+**Is CQRS needed?** No. `@nestjs/cqrs` is used **only as a mediator** (like MediatR): one handler per use case, one-line controllers. No event sourcing, no separate read/write databases. Removing it would take about 10 minutes (controllers call managers directly).
 
-Every error response has a stable **`code`**, so the frontend maps codes to friendly messages instead of parsing English text:
+**Who owns which table.** Each table has exactly one module that writes SQL for it:
+
+| Module | Table | Shared with other modules |
+|---|---|---|
+| menu | `menu_item` | `MenuRepository`: Orders uses it to reserve stock |
+| orders | `orders`, `order_line` | `OrdersRepository`: Payments uses it to mark an order paid |
+| payments | `payment_event` | — |
+
+## Error handling
+
+There's no try/catch in handlers. Code throws a NestJS exception with a stable `code`, and NestJS's global exception filter turns it into the HTTP response (like exception middleware in .NET). Unexpected errors become a 500.
+
 ```json
-{ "statusCode": 409, "code": "OUT_OF_STOCK", "message": "Only 0 left of Iced Latte", "menuItemId": 3, "available": 0 }
+{ "statusCode": 409, "code": "OUT_OF_STOCK", "message": "Only 0 left of Matcha Latte", "menuItemId": 3, "name": "Matcha Latte", "available": 0 }
 ```
+
 | code | HTTP | When |
 |---|---|---|
-| `VALIDATION_FAILED` | 400 | bad body (missing field, quantity out of range) |
-| `MENU_ITEM_NOT_FOUND` | 404 | item id doesn't exist |
-| `OUT_OF_STOCK` | 409 | not enough stock for the requested quantity (`available` included) |
+| `VALIDATION_FAILED` | 400 | bad body or header (missing field, quantity out of range) |
+| `MENU_ITEM_NOT_FOUND` | 404 | the item doesn't exist |
+| `OUT_OF_STOCK` | 409 | not enough stock (`available` says how many are left) |
 | `ORDER_NOT_FOUND` | 404 | payment confirmation for an unknown order |
 
-### Is CQRS required? No
-We use `@nestjs/cqrs` **only as a mediator** (CommandBus/QueryBus → Handler), the same role MediatR plays in .NET. We do **not** use the "big CQRS" parts: no separate read/write databases, no event sourcing, no sagas.
+The frontend picks the customer message from the `code`, never from the English text.
 
-- **Why keep it:** controllers stay one line, each use case is one Handler file, and it's the pattern I already think in.
-- **Trade-off:** one more level of indirection. The alternative is the controller calling `manager.placeOrder()` directly, which would also be fine for 3 endpoints. If the team prefers fewer layers, removing it means deleting the Handlers and pointing controllers at the managers (about 10 minutes).
+The one try/catch in the project is in `OrdersManager`. It turns a specific database error (two requests with the same idempotency key at once) into "return the order that won". That's the rule: only catch an error if you *do something different* with it.
 
-## Example: Place order, layer by layer
+## API
+
+| Endpoint | Body | Success | Errors |
+|---|---|---|---|
+| `GET /menu` | — | 200 `[{ id, name, priceCents, stock }]` | — |
+| `POST /orders` | `{ lines: [{ menuItemId, quantity }] }` + optional `Idempotency-Key` header | 201 `{ orderId, status, totalCents, createdAt, lines }`. Same key again → 201 with the **same** order. | 400, 404, 409 |
+| `POST /payments/confirm` | `{ eventId, orderId, amountCents }` | 200 `{ result, orderId, orderStatus, note? }`, where `result` is `APPLIED`, `DUPLICATE` or `IGNORED` | 400, 404 |
+
+Payment confirmations get 200 even for duplicates: the provider keeps retrying until it sees a success response.
+
+Try them in Swagger: http://localhost:3001/docs
+
+## The core code, layer by layer (place order)
+
+Shortened from the real files.
 
 ```ts
-// Controller — no logic
+// orders.controller.ts: no logic
 @Post()
-place(@Body() body: PlaceOrderRequest) {
-  return this.commandBus.execute(new PlaceOrderCommand(body.lines));
+place(@Body() body: PlaceOrderRequest, @IdempotencyKey() key: string | undefined) {
+  return this.commandBus.execute(new PlaceOrderCommand(body.lines, key));
 }
 
-// Handler — calls manager, shapes response
-@CommandHandler(PlaceOrderCommand)
-export class PlaceOrderHandler implements ICommandHandler<PlaceOrderCommand> {
-  constructor(private readonly manager: OrdersManager) {}
-  async execute(cmd: PlaceOrderCommand) {
-    const order = await this.manager.placeOrder(cmd.lines);
-    return { orderId: order.id, status: order.status, totalCents: order.totalCents };
+// orders.manager.ts: business rules + transaction
+async placeOrder(lines, idempotencyKey?) {
+  if (idempotencyKey) {                       // a retry? hand back the existing order
+    const existing = await this.ordersRepository.findByIdempotencyKey(this.prisma, idempotencyKey);
+    if (existing) return existing;
   }
-}
-
-// Manager — business rules + transaction
-async placeOrder(lines: OrderLineInput[]) {
   return this.prisma.$transaction(async (tx) => {
-    for (const line of sortById(mergeDuplicates(lines))) {
-      const reserved = await this.repo.tryDecrementStock(tx, line.menuItemId, line.quantity);
-      if (!reserved) throw new ConflictException(`Item ${line.menuItemId} is out of stock`);
+    for (const line of normalizeLines(lines)) {   // merged + sorted by id (no deadlocks)
+      const reserved = await this.menuRepository.tryDecrementStock(tx, line.menuItemId, line.quantity);
+      if (!reserved) throw new ConflictException({ code: 'OUT_OF_STOCK', ... }); // rolls back everything
     }
-    // ...create order + lines with price snapshot
+    return this.ordersRepository.create(tx, { idempotencyKey, totalCents, lines });
   });
 }
 
-// Repository — one query, no decisions
-async tryDecrementStock(tx: Tx, id: number, qty: number): Promise<boolean> {
-  const { count } = await tx.menuItem.updateMany({
-    where: { id, stock: { gte: qty } },     // WHERE id = $1 AND stock >= $2
-    data: { stock: { decrement: qty } },    // SET stock = stock - $2
+// menu.repository.ts: one query, no decisions
+async tryDecrementStock(db: Tx, id: number, quantity: number): Promise<boolean> {
+  const { count } = await db.menuItem.updateMany({
+    where: { id, stock: { gte: quantity } },   // WHERE id = $1 AND stock >= $2
+    data: { stock: { decrement: quantity } },  // SET stock = stock - $2
   });
   return count === 1;
 }
 ```
 
-## API endpoints
+## Frontend, in Angular terms
 
-| Method | Path | Purpose | Success | Errors |
-|---|---|---|---|---|
-| GET | `/menu` | List items with price and stock | 200 `[{ id, name, priceCents, stock }]` | — |
-| POST | `/orders` | Place an order `{ lines: [{ menuItemId, quantity }] }`, optional header `Idempotency-Key` | 201 `{ orderId, status: "PENDING", totalCents }` (also 201 with the **same order** when the key was already used) | 400 `VALIDATION_FAILED`, 404 `MENU_ITEM_NOT_FOUND`, 409 `OUT_OF_STOCK` |
-| POST | `/payments/confirm` | Called by the payment provider `{ eventId, orderId, amountCents }` | 200 `{ result: "APPLIED" \| "DUPLICATE" \| "IGNORED" }` | 400 `VALIDATION_FAILED`, 404 `ORDER_NOT_FOUND` |
-
-Why `/payments/confirm` answers **200 even for duplicates**: providers retry until they get a 2xx. A duplicate isn't an error, it's the provider doing its job, so we confirm we have it and the retries stop.
-
-## Frontend (Next.js App Router), in Angular terms
-
-| Next.js | Angular equivalent |
+| Next.js | Closest Angular idea |
 |---|---|
-| `app/page.tsx` folder-based route | route in `app.routes.ts` |
-| Server Component (default) | no direct equivalent: a component that runs **only on the server**, can `await fetch()` directly, and ships no JS |
-| `'use client'` component | a normal Angular component (runs in the browser, has state and events) |
-| Server Action (`'use server'` function) | a service method that calls the backend, except it runs on the server and the form can call it directly |
-| `refresh()` (in a Server Action) | "re-run the resolver and re-render this route" |
-| `router.refresh()` | re-fetch the server-rendered data without a full reload |
+| `app/page.tsx` (a file = a route) | a route in `app.routes.ts` |
+| **Server Component** (the default) | no real equivalent: runs **only on the server**, can `await` data directly, sends plain HTML |
+| `'use client'` component | a normal Angular component (state, events, runs in the browser) |
+| **Server Action** (`'use server'`) | a service method, except it runs on the server and a `<form>` can call it directly |
+| `useActionState` | the form's result + a "loading" flag, without writing a store |
+| `refresh()` / `router.refresh()` | re-run the route's data loading and re-render, without a page reload |

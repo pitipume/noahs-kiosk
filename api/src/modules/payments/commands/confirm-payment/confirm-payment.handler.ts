@@ -8,9 +8,7 @@ export class ConfirmPaymentHandler implements ICommandHandler<
   ConfirmPaymentCommand,
   ConfirmPaymentResponse
 > {
-  constructor(
-    private readonly paymentsManager: PaymentsManager
-  ) {}
+  constructor(private readonly paymentsManager: PaymentsManager) {}
 
   async execute(
     command: ConfirmPaymentCommand,

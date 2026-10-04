@@ -27,7 +27,7 @@ Controller → Handler → Manager → Repository → PrismaService
 2. Order lines are merged and sorted by `menuItemId` before reserving (deadlock avoidance).
 3. Payment events are deduped by `UNIQUE(provider_event_id)` + `ON CONFLICT DO NOTHING`.
 4. Order status transitions only via conditional UPDATE (`WHERE status = 'PENDING'`).
-5. The menu page is never statically cached (`cache: 'no-store'`).
+5. The menu page is never cached: `dynamic = 'force-dynamic'` + `fetch(..., { cache: 'no-store' })`.
 6. Errors carry a stable `code`; the UI maps codes to messages in `web/lib/messages.ts` (see docs/04-ui-states.md). No try/catch in handlers.
 7. `POST /orders` honours the `Idempotency-Key` header: same key → same order, never a second one.
 8. DB: snake_case via Prisma `@map`, all timestamps `timestamptz` (UTC).
@@ -35,4 +35,5 @@ Controller → Handler → Manager → Repository → PrismaService
 ## Commands
 - `docker compose up --build`: everything (web :3000, api :3001 + `/docs`, db :5432)
 - `docker compose exec api npm test` / `npm run simulate:payment -- --times 5`: tests / act as the payment provider
+- `cd web && npx eslint . && npx next build`: frontend checks
 - `cd api && npm test`: 7 integration tests against `kiosk_test` (needs the db container running). `test/support/env.ts` points Prisma at the test DB; tests TRUNCATE tables.

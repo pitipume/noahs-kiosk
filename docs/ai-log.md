@@ -17,7 +17,7 @@ Tool: Claude Code (Claude Opus).
 | Integration tests (Jest + supertest, real Postgres `kiosk_test`) | AI wrote them to the brief's two required scenarios + extras | **Negative control:** swapped in a naive read-then-write `tryDecrementStock` → 19/20 sold the last item, 2 tests failed; restored → 7/7 pass. Checked that the tests hit `kiosk_test` and left the demo `kiosk` DB untouched. |
 | Next.js web: menu page (Server Component), Server Action, order form, auto-refresh, error page | AI, following docs/04-ui-states | `tsc`, ESLint, `next build` (route `/` is ƒ Dynamic), curl: SSR HTML contains prices/stock; stock bought by another client appears on next load without rebuild. Browser click-through: **me** (see PROGRESS) |
 | Dockerfiles, docker-compose (db + api + web with healthchecks), payment simulator script | AI | Full stack up via compose; page renders 5 items; simulator 5× same event → 1 APPLIED + 4 DUPLICATE; 7/7 tests inside the container. **Fresh-clone run** under a separate compose project (new volume): migration applied, menu seeded, tests pass. |
-| _(filled in as we go)_ | | |
+| README decisions/caching/gaps/next/AI-usage sections | AI draft from the session; **reflection section = my notes**, AI tidied English | Read against the brief's 4 required README points |
 
 ## Times the AI was wrong (and how it was caught)
 
@@ -60,6 +60,12 @@ Tool: Claude Code (Claude Opus).
 - **What AI did:** synced state with effects (generate a key on mount, react to each result, clamp quantity). Separately, "Start over" cleared the key but left the last "unknown" result in place, so the warning stayed and the quantity stayed locked.
 - **How caught:** ESLint's React rule `react-hooks/set-state-in-effect` flagged the 3 effects; the Start-over bug was found by re-reading the component before running it.
 - **Fix:** key in a `useRef` set at submit time, state updates moved into the action, quantity clamp derived during render; Start over now hides the current result (`dismissedAt`).
+
+### 9. Never ran the API linter until the final recheck
+- **What AI did:** checked every backend phase with `tsc`, tests and curl, but never ran ESLint on `api/`. The final recheck found 28 lint errors: 5 formatting, 1 `require()` in the test setup, and ~22 "unsafe `any`" errors, mostly from supertest's untyped `res.body` in tests and `res.json()` in the simulator script. None were in the app's `src/` logic.
+- **How caught:** a full-project recheck before submitting (I asked for one).
+- **Fix:** typed the simulator's response, replaced `require` with `import`, formatted, and turned off the "unsafe any" rules for `test/**` only (supertest bodies are `any` by design; assertions check the shape). Lesson: run *every* checker the project ships with, not just the compiler.
+- **Also found in the same recheck:** the README's local-dev steps said `cd api` then `cd web` (fails from inside `api/`), and the architecture doc still showed an early code sketch with function names that don't exist. Both fixed.
 
 <!-- Format:
 ### <short title>

@@ -1,5 +1,7 @@
 # 03 — Flows and concurrency
 
+Step-by-step diagrams of each flow, and *why* the two promises (no double-selling, pay exactly once) hold even when requests arrive at the same moment.
+
 ## 1. View menu (server-rendered, always fresh)
 
 ```mermaid
@@ -106,7 +108,7 @@ sequenceDiagram
     participant W as web (Server Action)
     participant A as api
     participant D as Postgres
-    Note over B: key = crypto.randomUUID() for this attempt
+    Note over B: key = crypto.randomUUID() on first tap, kept until a definite answer
     C->>B: tap "Order"
     B->>W: placeOrder(item, qty, key)
     W->>A: POST /orders  Idempotency-Key: key  (5 s timeout)
@@ -125,7 +127,7 @@ sequenceDiagram
 
 Rules:
 - The browser keeps **one key per order attempt** and reuses it on "Try again". It makes a **new key** only after a definite answer (success or a 4xx), so the next order is a new order.
-- API: inside the order transaction, look up the key first. If found, return that order. If not, reserve stock and create the order with the key. If two requests with the same key race, the `UNIQUE` index lets one win; the loser's transaction rolls back (releasing its stock reservation) and it returns the winner's order.
+- API: look up the key first. If an order has it, return that order. If not, reserve stock and create the order with the key, in one transaction. If two requests with the same key race, the `UNIQUE` index lets one win; the loser's transaction rolls back (releasing its stock) and it returns the winner's order.
 - The web server calls the API with a **5-second timeout** (`AbortSignal.timeout(5000)`), so the customer is never stuck on a spinner forever.
 - **While a retry is pending, the quantity selector is locked.** The key means "this exact order". If the customer could change 2 → 3 and retry with the same key, the API would return the original 2-item order, which is confusing. To order something different, they tap "Start over", which makes a new key.
 
@@ -153,6 +155,6 @@ sequenceDiagram
     B-->>C: message + updated stock (no full reload)
 ```
 
-The page is revalidated on **failure too** (e.g. 409), so a customer who just lost the race immediately sees the item as "Sold out". The exact messages for every outcome are in [04-ui-states.md](04-ui-states.md).
+The page is refreshed on **failure too** (e.g. 409), so a customer who just lost the race immediately sees the item as "Sold out". The exact messages for every outcome are in [04-ui-states.md](04-ui-states.md).
 
 Other customers' screens pick up changes through `AutoRefresh`, which calls `router.refresh()` every few seconds (see README → Caching).

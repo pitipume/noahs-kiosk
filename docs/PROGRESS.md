@@ -15,7 +15,7 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 | 6 | Integration tests: concurrent orders + duplicate confirmations | 1h | ~0.5h | ✅ |
 | 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h | ~1h | ✅ |
 | 8 | Docker Compose one-command run, payment simulator script | 0.5h | ~0.5h | ✅ |
-| 9 | README: run, decisions, trade-offs, next day, .NET/Angular reflection, AI usage | 0.5h |  | ⬜ |
+| 9 | README: run, decisions, trade-offs, next day, .NET/Angular reflection, AI usage | 0.5h | ~0.5h | ✅ |
 
 ## Log (what actually happened)
 
@@ -44,6 +44,10 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 
 - Phase 8: `docker compose up --build` runs db + api + web (api waits for a healthy db, web waits for a healthy api; api migrates + seeds-if-empty on start). Single-stage images keep dev deps so tests and the simulator run inside the api container (trade-off: bigger image). `simulate-payment.ts` plays the provider (`--times`, `--event`, `--amount`, `--order`). Verified a reviewer's fresh-clone run on a new volume.
 
+- Phase 9: README completed: decisions and trade-offs table, caching choice, known gaps, next steps, my .NET/Angular reflection (my notes, English tidied by AI), AI usage summary.
+- Final recheck (my request): README rewritten in plain language with step-by-step run instructions and a DB connection table; all docs checked against the final code (architecture doc's code sketch and folder tree updated, DB doc indexes/enum fixed); API ESLint run for the first time → 28 issues fixed (ai-log #9). All checks green: api `tsc` + ESLint + 7/7 tests, web `tsc` + ESLint.
+- **Total: ~7.5 h** of the 8 h box (incl. ~45 min lost to the iCloud incident).
+
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 
-## Next (if another day): see README → "What I would do next"
+## Next (if another day): see README → "What I would do next" and "Known gaps"

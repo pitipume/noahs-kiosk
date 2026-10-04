@@ -1,5 +1,7 @@
 # 02 — Database design (PostgreSQL)
 
+Four tables. The schema lives in `api/prisma/schema.prisma`; the generated SQL (plus hand-written CHECK constraints) is in `api/prisma/migrations/`.
+
 ## ER diagram
 
 ```mermaid
@@ -36,7 +38,7 @@ erDiagram
         varchar    provider_event_id UK "dedupe key"
         uuid       order_id FK
         int        amount_cents
-        event_result result  "APPLIED | IGNORED"
+        payment_event_result result  "APPLIED | IGNORED"
         varchar    note
         timestamptz received_at
     }
@@ -59,7 +61,7 @@ erDiagram
   | `timestamptz` | converts the input **to UTC** on save, returns it as an exact instant | Unambiguous. The same moment everywhere. |
 
   (It doesn't store the original zone. It normalizes to UTC. Closest MSSQL comparison: `datetime2` vs `datetimeoffset`, except Postgres keeps no offset, only the UTC instant.)
-- Every timestamp column is `TIMESTAMPTZ(3)` (`@db.Timestamptz(3)` in Prisma). Postgres stores it as UTC internally and returns an unambiguous instant, so there's no "was this server in Bangkok or London?" question.
+- Every timestamp column is `TIMESTAMPTZ(3)` (`@db.Timestamptz(3)` in Prisma).
 - API JSON returns ISO-8601 UTC (`2026-10-04T07:30:00.000Z`).
 - Converting to local time is a **display concern**: the UI formats it in the kiosk's timezone. Correct for a global company, and nothing changes if a kiosk opens in another country.
 
@@ -76,13 +78,13 @@ erDiagram
 
 ### `orders`
 - Named `orders` because `order` is a reserved SQL word.
-- **`id UUID`.** It goes into URLs and payment payloads, so it shouldn't be guessable or reveal how many orders we have.
+- **`id UUID`.** It's sent to the payment provider and shown (shortened) as the order number, so it shouldn't be guessable or reveal how many orders we have.
 - **`status` enum, `PENDING → PAID` only.** The state machine only moves forward, which is what makes late or out-of-order confirmations safe (see 03-flows.md).
 - **Stock is reserved at order time** (status PENDING), not at payment time. The customer at the kiosk must know right away whether they got the last item.
-
 - **`idempotency_key VARCHAR UNIQUE NULL`.** The client sends the same key when it retries an order after a timeout. If an order with that key already exists, the API returns it instead of creating a second one (see 03-flows.md §4). It's nullable so API callers without a key still work. Postgres allows many NULLs in a UNIQUE column.
 
 ### `order_line`
+- **`quantity CHECK (quantity > 0)`**, also hand-written in the migration.
 - **`unit_price_cents` snapshot.** If the menu price changes later, old orders still show what the customer actually paid.
 
 ### `payment_event`
@@ -94,6 +96,7 @@ erDiagram
 |---|---|
 | PKs | default |
 | `payment_event(provider_event_id)` UNIQUE | dedupe, and the lookup on every webhook |
+| `orders(idempotency_key)` UNIQUE | order retry lookup; stops two orders with the same key |
 | `order_line(order_id)` | load an order's lines |
 | `payment_event(order_id)` | load an order's payment history |
 

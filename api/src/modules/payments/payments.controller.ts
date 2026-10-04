@@ -8,9 +8,7 @@ import { ConfirmPaymentResponse } from './commands/confirm-payment/confirm-payme
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentsController {
-  constructor(
-    private readonly commandBus: CommandBus
-  ) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   // Called by the payment provider (webhook). Always 200 for a processed event,
   // including DUPLICATE: a 2xx tells the provider "got it, stop retrying".

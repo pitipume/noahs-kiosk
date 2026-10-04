@@ -13,6 +13,13 @@ import { randomUUID } from 'crypto';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 
+/** Success body ({ result, note }) or error body ({ code }) from POST /payments/confirm. */
+interface ConfirmReply {
+  result?: string;
+  note?: string;
+  code?: string;
+}
+
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? undefined : process.argv[i + 1];
@@ -24,11 +31,18 @@ async function main() {
   const orderId = arg('order');
   const order = orderId
     ? await prisma.order.findUnique({ where: { id: orderId } })
-    : await prisma.order.findFirst({ where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' } });
+    : await prisma.order.findFirst({
+        where: { status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+      });
   await prisma.$disconnect();
 
   if (!order) {
-    console.error(orderId ? `Order ${orderId} not found` : 'No PENDING order. Place one first.');
+    console.error(
+      orderId
+        ? `Order ${orderId} not found`
+        : 'No PENDING order. Place one first.',
+    );
     process.exit(1);
   }
 
@@ -46,10 +60,19 @@ async function main() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }).then(async (res) => ({ status: res.status, ...(await res.json()) })),
+      }).then(async (res) => ({
+        status: res.status,
+        ...((await res.json()) as ConfirmReply),
+      })),
     ),
   );
-  console.table(results.map((r) => ({ http: r.status, result: r.result ?? r.code, note: r.note ?? '' })));
+  console.table(
+    results.map((r) => ({
+      http: r.status,
+      result: r.result ?? r.code,
+      note: r.note ?? '',
+    })),
+  );
 }
 
 void main();
