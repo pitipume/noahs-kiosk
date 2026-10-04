@@ -114,7 +114,7 @@ sequenceDiagram
     B->>W: placeOrder(item, qty, key)
     W->>A: POST /orders  Idempotency-Key: key
     A->>D: SELECT order WHERE idempotency_key = key → found
-    A-->>W: 200 existing order (no new order, no stock change)
+    A-->>W: 201 same order as the first attempt (no new order, no stock change)
     W-->>B: success
     B-->>C: "Order placed! #3F9A12C0"
 ```

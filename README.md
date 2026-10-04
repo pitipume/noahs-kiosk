@@ -30,6 +30,7 @@ npm install
 npx prisma migrate dev           # create tables
 npx prisma db seed               # demo menu
 npm run start:dev                # API on :3001
+npm run db:reset                 # demo data back to the starting menu (wipes orders)
 ```
 
 > Run Prisma commands from inside `api/`. From the repo root, `npx` can't find the local Prisma 6 and downloads the newest one instead (currently an 8.0 release candidate, which has no `studio` command).

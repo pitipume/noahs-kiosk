@@ -10,6 +10,8 @@ Tool: Claude Code (Claude Opus).
 |---|---|---|
 | Design docs (docs/01–03) | AI draft from my requirements; I reviewed and changed decisions | Read each one against the brief; asked "why" on each decision |
 | API scaffold: Nest CLI project, Prisma schema, migration, seed, PrismaService, validation pipe | AI, from the DB design I approved | Compared schema against 02-database.md; ran migration and checked `\d menu_item` in psql shows the CHECK constraints; compiled with `tsc` |
+| `GET /menu`, `POST /orders` (stock reservation, idempotency key), all layers | AI, following docs/01–03 | curl smoke test of each path: success, replayed key, sold out, multi-line rollback (Latte stock stayed 10), unknown item, invalid body. Concurrency proven by tests in phase 6. |
+| Explicit return types on managers/repositories (`Promise<MenuItem[]>`, `OrderWithLines`) | **Me** (review feedback), AI applied | Asked why the manager's type was hidden; agreed the manager returns entities, not Response DTOs |
 | _(filled in as we go)_ | | |
 
 ## Times the AI was wrong (and how it was caught)
@@ -28,6 +30,16 @@ Tool: Claude Code (Claude Opus).
 - **What AI did:** put `prisma/seed.ts` in the project without excluding it from `tsconfig.build.json`. TypeScript then compiled two root folders, so the output moved to `dist/src/main.js` and `node dist/main` failed with `Cannot find module`.
 - **How caught:** smoke-running the built API.
 - **Fix:** excluded `prisma/` and `scripts/` from the build config.
+
+### 4. Design doc said "200" for a replayed idempotency key
+- **What AI did:** the design (01-architecture, 03-flows) said a retried order with the same key returns **200**, while a new order returns 201.
+- **How caught:** while implementing the controller. Returning a different status for a retry means the client sees a different answer depending on whether the first response got lost, which defeats the point of idempotency (the retry should look exactly like the original).
+- **Fix:** always 201 with the same order body, matching how Stripe replays the original response. Docs updated.
+
+### 5. Didn't notice the project lived in an iCloud-synced folder
+- **What happened:** the repo started under `~/Documents`, which macOS syncs to iCloud Drive. iCloud evicted files to "dataless" placeholders: first inside `node_modules` (the Prisma CLI exited silently, `tsc` hung for 2+ minutes instead of ~1 s), later the uncommitted phase 3–4 source files themselves.
+- **How caught:** the AI first treated the Prisma failure as a random corruption and just reinstalled. Only when `tsc` hung with 0% CPU did it check the file flags (`ls -lO` → `compressed,dataless`) and find iCloud.
+- **Fix:** fresh clone into `~/Developer` (not synced), phase 3–4 rebuilt from the session (the AI had written every file). Lesson for both of us: when tools behave randomly, check the environment before blaming the code, and commit/push small and often, since only pushed work survived.
 
 <!-- Format:
 ### <short title>

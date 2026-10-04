@@ -4,18 +4,18 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 
 ## Plan
 
-| # | Phase | Est. | Status |
-|---|---|---|---|
-| 1 | Read brief, decide stack, write design docs (architecture, DB, flows) | 1h | ✅ |
-| 2 | API scaffold: NestJS + Prisma schema + migration + seed + Docker Postgres | 1h | ✅ |
-| 3 | `GET /menu` | 0.25h | ⬜ |
-| 4 | `POST /orders` with atomic stock reservation | 1h | ⬜ |
-| 4b | `Idempotency-Key` on `POST /orders` (safe retry after timeout) | 0.5h | ⬜ |
-| 5 | `POST /payments/confirm` idempotent | 1h | ⬜ |
-| 6 | Integration tests: concurrent orders + duplicate confirmations | 1h | ⬜ |
-| 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h | ⬜ |
-| 8 | Docker Compose one-command run, payment simulator script | 0.5h | ⬜ |
-| 9 | README: run, decisions, trade-offs, next day, .NET/Angular reflection, AI usage | 0.5h | ⬜ |
+| # | Phase | Est. | Actual | Status |
+|---|---|---|---|---|
+| 1 | Read brief, decide stack, write design docs (architecture, DB, flows) | 1h | ~1.5h (3 review rounds) | ✅ |
+| 2 | API scaffold: NestJS + Prisma schema + migration + seed + Docker Postgres | 1h | ~1h (incl. node_modules fix) | ✅ |
+| 3 | `GET /menu` | 0.25h | ~0.5h (with 4 + 4b) | ✅ |
+| 4 | `POST /orders` with atomic stock reservation | 1h | + ~0.75h lost to iCloud, rebuilt | ✅ |
+| 4b | `Idempotency-Key` on `POST /orders` (safe retry after timeout) | 0.5h |  | ✅ |
+| 5 | `POST /payments/confirm` idempotent | 1h |  | ⬜ |
+| 6 | Integration tests: concurrent orders + duplicate confirmations | 1h |  | ⬜ |
+| 7 | Web: Next.js menu page (SSR) + order form + Server Action + refresh | 1.25h |  | ⬜ |
+| 8 | Docker Compose one-command run, payment simulator script | 0.5h |  | ⬜ |
+| 9 | README: run, decisions, trade-offs, next day, .NET/Angular reflection, AI usage | 0.5h |  | ⬜ |
 
 ## Log (what actually happened)
 
@@ -30,6 +30,9 @@ Time budget: **≤ 8 hours total** (brief). Status: ⬜ todo · 🟨 in progress
 
 - Version decision: stay on **NestJS 11** (`legacy` tag) and **Prisma 6**, though NestJS 12 (Sep 2026) and Prisma 7 exist. Reasons: time box, a stack I've already used (twon-next-nest), better-known docs; upgrading is a separate, testable task (README → next steps).
 - I found that `npx prisma studio` from the repo root downloaded Prisma 8 RC instead of using the project's Prisma 6. Added an `npm run db:studio` script and a README note.
+
+- Phases 3+4+4b: `GET /menu`, `POST /orders` with atomic conditional-UPDATE reservation, lines merged + sorted (deadlock avoidance), all-or-nothing rollback, `Idempotency-Key` header (fast-path lookup + UNIQUE index for races). Replayed key returns 201 + same order (changed from the design's 200, see ai-log #4). Added `npm run db:reset`. My review: explicit return types on managers/repositories.
+- **Incident:** the repo was in `~/Documents` (iCloud-synced). iCloud evicted the uncommitted phase 3–4 files before they were committed. Re-cloned to `~/Developer`, rebuilt phase 3–4 from the session, verified with the same smoke test. ~45 min lost. Lesson: commit + push small and often (see ai-log #5).
 
 ## Out of scope (by brief): auth, styling, deployment, admin screens
 

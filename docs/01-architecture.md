@@ -185,7 +185,7 @@ async tryDecrementStock(tx: Tx, id: number, qty: number): Promise<boolean> {
 | Method | Path | Purpose | Success | Errors |
 |---|---|---|---|---|
 | GET | `/menu` | List items with price and stock | 200 `[{ id, name, priceCents, stock }]` | — |
-| POST | `/orders` | Place an order `{ lines: [{ menuItemId, quantity }] }`, optional header `Idempotency-Key` | 201 `{ orderId, status: "PENDING", totalCents }` (200 with the same body when the key was already used) | 400 `VALIDATION_FAILED`, 404 `MENU_ITEM_NOT_FOUND`, 409 `OUT_OF_STOCK` |
+| POST | `/orders` | Place an order `{ lines: [{ menuItemId, quantity }] }`, optional header `Idempotency-Key` | 201 `{ orderId, status: "PENDING", totalCents }` (also 201 with the **same order** when the key was already used) | 400 `VALIDATION_FAILED`, 404 `MENU_ITEM_NOT_FOUND`, 409 `OUT_OF_STOCK` |
 | POST | `/payments/confirm` | Called by the payment provider `{ eventId, orderId, amountCents }` | 200 `{ result: "APPLIED" \| "DUPLICATE" \| "IGNORED" }` | 400 `VALIDATION_FAILED`, 404 `ORDER_NOT_FOUND` |
 
 Why `/payments/confirm` answers **200 even for duplicates**: providers retry until they get a 2xx. A duplicate isn't an error, it's the provider doing its job, so we confirm we have it and the retries stop.
